@@ -54,7 +54,7 @@ func callFetch(t *testing.T, payload []byte) (envelope, quotaFetchResponse) {
 func TestFetchBudgetedKey(t *testing.T) {
 	server := newLiteLLM(t, http.StatusOK, `{"key":"abc","info":{
 		"key_alias":"maps-dev","spend":1.25,"max_budget":5.0,
-		"budget_duration":"30d","budget_reset_at":"2026-11-25T00:00:00.123456"}}`)
+		"budget_duration":"monthly","budget_reset_at":"2026-11-01T00:00:00.123456"}}`)
 
 	// A /v1 base (as used for OpenAI-compatible routing) must still hit the root /key/info.
 	env, resp := callFetch(t, fetchRequest(t, server.URL+"/v1/"))
@@ -76,9 +76,40 @@ func TestFetchBudgetedKey(t *testing.T) {
 	if len(resp.Groups) != 1 || len(resp.Groups[0].Buckets) != 1 {
 		t.Fatalf("groups = %+v", resp.Groups)
 	}
+	// The panel's timeline can't draw a monthly window, so the reset date moves into
+	// the label and no reset time is sent.
 	bucket := resp.Groups[0].Buckets[0]
-	if bucket.RemainingFraction != 0.75 || bucket.Window != "30d" || bucket.ResetTime != "2026-11-25T00:00:00Z" {
+	if bucket.RemainingFraction != 0.75 || bucket.Window != "" || bucket.ResetTime != "" ||
+		bucket.Description != "Monthly budget · resets Nov 1" {
 		t.Errorf("bucket = %+v", bucket)
+	}
+}
+
+func TestFetchWeeklyBudgetKeepsTimelineWindow(t *testing.T) {
+	server := newLiteLLM(t, http.StatusOK, `{"info":{"spend":0,"max_budget":2,
+		"budget_duration":"7d","budget_reset_at":"2026-11-03 00:00:00.5+00:00"}}`)
+
+	_, resp := callFetch(t, fetchRequest(t, server.URL))
+	bucket := resp.Groups[0].Buckets[0]
+	if bucket.Window != "weekly" || bucket.ResetTime != "2026-11-03T00:00:00Z" || bucket.Description != "7-day budget" {
+		t.Errorf("bucket = %+v", bucket)
+	}
+}
+
+func TestBudgetLabel(t *testing.T) {
+	for in, want := range map[string]string{
+		"":        "Total budget",
+		"monthly": "Monthly budget",
+		"1mo":     "Monthly budget",
+		"30d":     "30-day budget",
+		"1d":      "Daily budget",
+		"24h":     "24-hour budget",
+		"2w":      "2-week budget",
+		"odd":     "Budget (odd)",
+	} {
+		if got := budgetLabel(in); got != want {
+			t.Errorf("budgetLabel(%q) = %q, want %q", in, got, want)
+		}
 	}
 }
 

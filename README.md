@@ -11,8 +11,10 @@ It declares only CLIProxyAPI's `quota_provider` plugin capability. It does not m
 | Plan | `key_alias` |
 | Spent | `spend` (USD) |
 | Budget, Remaining | `max_budget`, `max_budget - spend` (omitted when `max_budget` is null) |
-| Meter: % left, reset time | `(max_budget - spend) / max_budget`, `budget_reset_at` |
-| Meter label | `budget_duration` |
+| Meter: % left | `(max_budget - spend) / max_budget` |
+| Meter label | `budget_duration`, e.g. "Monthly budget · resets Nov 1" or "30-day budget" |
+
+The panel's quota timeline can only draw 5-hour and weekly windows. Weekly budgets (`7d`, `1w`, `weekly`) are sent as a weekly window with `budget_reset_at`, so they get a timeline bar and a countdown. For any other duration, the reset date goes in the meter label instead, and the timeline leaves the key out (as it does for xAI's monthly billing).
 
 Budget reset is not supported; LiteLLM resets budgets on its own schedule.
 
@@ -28,7 +30,6 @@ make test
 Without a local Go install: `nix shell nixpkgs#go nixpkgs#gnumake -c make build`.
 
 For the official Docker image (Debian, glibc), `make linux` builds the `.so` in a `golang:1.26-bookworm` container. On an Apple Silicon host this produces `linux/arm64`; pass `GOARCH=amd64` for an x86-64 server.
-
 ## Install
 
 1. Copy the library into CLIProxyAPI's plugin directory as `<plugins.dir>/<os>/<arch>/litellm-quota.<ext>` (or run `make install PLUGINS_DIR=...`). The file name is the plugin ID. A relative `plugins.dir` resolves against CLIProxyAPI's working directory.

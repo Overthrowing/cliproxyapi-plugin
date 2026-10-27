@@ -285,21 +285,49 @@ func buildQuota(info keyInfo) quotaFetchResponse {
 		return resp
 	}
 
-	duration := strings.TrimSpace(info.Info.BudgetDuration)
-	description := "No scheduled reset"
-	if duration != "" {
-		description = "Resets every " + duration
+	duration := strings.ToLower(strings.TrimSpace(info.Info.BudgetDuration))
+	resetTime := normalizeTime(info.Info.BudgetResetAt)
+	bucket := quotaBucket{
+		RemainingFraction: math.Max(0, math.Min(1, remaining/budget)),
+		Description:       budgetLabel(duration),
 	}
-	resp.Groups = []quotaGroup{{
-		DisplayName: "Key budget",
-		Buckets: []quotaBucket{{
-			Window:            duration,
-			RemainingFraction: math.Max(0, math.Min(1, remaining/budget)),
-			ResetTime:         normalizeTime(info.Info.BudgetResetAt),
-			Description:       description,
-		}},
-	}}
+	switch {
+	case duration == "weekly" || duration == "7d" || duration == "1w":
+		// The panel's timeline draws only 5-hour and weekly windows.
+		bucket.Window = "weekly"
+		bucket.ResetTime = resetTime
+	case resetTime != "":
+		// Any other reset time would put an undrawable, empty row on the panel's
+		// timeline, so the date goes in the label instead.
+		if parsed, errParse := time.Parse(time.RFC3339, resetTime); errParse == nil {
+			bucket.Description += " · resets " + parsed.Format("Jan 2")
+		}
+	}
+	resp.Groups = []quotaGroup{{DisplayName: "LiteLLM key", Buckets: []quotaBucket{bucket}}}
 	return resp
+}
+
+// budgetLabel names a budget after LiteLLM's budget_duration: "monthly", "1mo", "30d", "24h".
+func budgetLabel(duration string) string {
+	switch duration {
+	case "":
+		return "Total budget"
+	case "hourly", "daily", "weekly", "monthly", "yearly":
+		return strings.ToUpper(duration[:1]) + duration[1:] + " budget"
+	}
+	units := map[string]string{"s": "second", "m": "minute", "h": "hour", "d": "day", "w": "week", "mo": "month"}
+	periodic := map[string]string{"h": "Hourly", "d": "Daily", "w": "Weekly", "mo": "Monthly"}
+	split := strings.IndexFunc(duration, func(r rune) bool { return r < '0' || r > '9' })
+	if split > 0 {
+		count, unit := duration[:split], duration[split:]
+		if count == "1" && periodic[unit] != "" {
+			return periodic[unit] + " budget"
+		}
+		if units[unit] != "" {
+			return count + "-" + units[unit] + " budget"
+		}
+	}
+	return "Budget (" + duration + ")"
 }
 
 func usd(key, label string, value float64) quotaMetric {
