@@ -70,5 +70,3 @@ The file is loaded as a credential with no models, so it is never selected for r
 - Error messages from LiteLLM appear on the card. The key is redacted from them.
 - CLIProxyAPI loads plugins as native code inside its process. The plugin recovers its own panics so that a bad response can't crash the server.
 - Tested against CLIProxyAPI v8.0.45 (`main` at `ad8bdd3`) and the management panel's generic plugin quota card.
-
-Created in [T3 Code](https://t3.codes).
