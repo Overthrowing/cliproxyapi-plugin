@@ -13,6 +13,9 @@ jobs:
     container: golang:1.26-bookworm
     steps:
       - uses: actions/checkout@v7
+      # The container user doesn't own the checkout; without this, git refuses it and
+      # go build can't stamp VCS info (nor can the Makefile read author and repo).
+      - run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - run: make test && make build GOOS=linux GOARCH=amd64
       - uses: actions/upload-artifact@v7
         with:
