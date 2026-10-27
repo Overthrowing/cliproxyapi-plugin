@@ -30,6 +30,8 @@ make test
 Without a local Go install: `nix shell nixpkgs#go nixpkgs#gnumake -c make build`.
 
 For the official Docker image (Debian, glibc), `make linux` builds the `.so` in a `golang:1.26-bookworm` container. On an Apple Silicon host this produces `linux/arm64`; pass `GOARCH=amd64` for an x86-64 server.
+
+GitHub Actions runs `make test && make build GOOS=linux GOARCH=amd64` in the same container on every push to `main` and on pull requests. Download `litellm-quota.so` from the run's `litellm-quota-linux-amd64` artifact.
 ## Install
 
 1. Copy the library into CLIProxyAPI's plugin directory as `<plugins.dir>/<os>/<arch>/litellm-quota.<ext>` (or run `make install PLUGINS_DIR=...`). The file name is the plugin ID. A relative `plugins.dir` resolves against CLIProxyAPI's working directory.

@@ -1,0 +1,21 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  linux-amd64:
+    runs-on: ubuntu-latest
+    # Same base as CLIProxyAPI's Docker image, so the .so links against a glibc that image has.
+    container: golang:1.26-bookworm
+    steps:
+      - uses: actions/checkout@v7
+      - run: make test && make build GOOS=linux GOARCH=amd64
+      - uses: actions/upload-artifact@v7
+        with:
+          name: litellm-quota-linux-amd64
+          path: build/plugins/linux/amd64/litellm-quota.so
+          if-no-files-found: error
